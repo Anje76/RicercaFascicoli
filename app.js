@@ -24,6 +24,15 @@ function parseStatoCode(val) {
   return '21'; // Default NOTI
 }
 
+// Restituisce la priorità numerica per l'ordinamento (1: 21, 2: 44, 3: 45)
+function getPriorityOrder(statoCode) {
+  const code = parseStatoCode(statoCode);
+  if (code === '21') return 1;
+  if (code === '44') return 2;
+  if (code === '45') return 3;
+  return 1;
+}
+
 // Calcolo dinamico dello sfondo scheda in base al tipo e all'anno
 function getCardBgClass(statoCode, anno) {
   const code = parseStatoCode(statoCode);
@@ -50,13 +59,16 @@ function getCardBgClass(statoCode, anno) {
   return 'bg-white border-slate-200 text-slate-800 shadow-xs';
 }
 
-// Generatore Badge Operatore (Angelo: fondo blu / contorno cremisi; Michele: fondo nero / contorno rosso)
+// Generatore Badge Operatore con pulizia maiuscole/minuscole e stili ad altissimo contrasto
 function getOperatoreBadge(operatore) {
-  const op = String(operatore).trim();
-  if (op.toLowerCase().includes('angelo')) {
-    return `<span class="bg-blue-600 border-2 border-[#DC143C] text-white text-[11px] px-2.5 py-0.5 rounded-md font-extrabold tracking-wide shadow-2xs uppercase">Angelo</span>`;
+  const opClean = String(operatore || '').trim().toLowerCase();
+  
+  if (opClean.includes('angelo')) {
+    return `<span class="inline-block uppercase font-black text-[11px] tracking-wider px-2.5 py-0.5 rounded-md shadow-xs" style="background-color: #2563eb !important; color: #ffffff !important; border: 2px solid #dc2626 !important;">ANGELO</span>`;
   }
-  return `<span class="bg-black border-2 border-red-600 text-white text-[11px] px-2.5 py-0.5 rounded-md font-extrabold tracking-wide shadow-2xs uppercase">Michele</span>`;
+  
+  // Default MICHELE (o altro operatore)
+  return `<span class="inline-block uppercase font-black text-[11px] tracking-wider px-2.5 py-0.5 rounded-md shadow-xs" style="background-color: #000000 !important; color: #ffffff !important; border: 2px solid #dc2626 !important;">MICHELE</span>`;
 }
 
 // Inizializzazione Riconoscimento Vocale
@@ -256,7 +268,12 @@ function processExcelWorkbook(data) {
         const anno = annoRaw || new Date().getFullYear().toString();
         const numero = numeroRaw;
         const stato = parseStatoCode(statoRaw);
-        const operatore = operatoreRaw || 'Michele';
+        
+        // Pulizia nome operatore
+        let operatore = 'Michele';
+        if (operatoreRaw.toLowerCase().includes('angelo')) {
+          operatore = 'Angelo';
+        }
 
         const giaEsistente = fascicoli.some(f => f.numero === numero && f.anno === anno);
         if (!giaEsistente) {
@@ -371,7 +388,8 @@ function cycleStato(id) {
 function toggleOperatore(id) {
   const f = fascicoli.find(x => x.id === id);
   if (f) {
-    f.operatore = f.operatore === 'Michele' ? 'Angelo' : 'Michele';
+    const currentOp = String(f.operatore).toLowerCase();
+    f.operatore = currentOp.includes('michele') ? 'Angelo' : 'Michele';
     saveData();
     renderList();
     highlightCard(f.id);
@@ -409,11 +427,8 @@ function renderList() {
     grouped[f.anno].push(f);
   });
 
-  // Ordinamento Anno Decrescente
-  const anniOrdinati = Object.keys(grouped).sort((a, b) => b - a);
-
-  // Mappa priorità dei tipi (21 prima, poi 44, poi 45)
-  const typePriority = { '21': 1, '44': 2, '45': 3 };
+  // Ordinamento Anno Decrescente (es. 2026, 2025, 2024...)
+  const anniOrdinati = Object.keys(grouped).sort((a, b) => Number(b) - Number(a));
 
   anniOrdinati.forEach(anno => {
     const groupEl = document.createElement('div');
@@ -421,18 +436,15 @@ function renderList() {
     
     const itemsHtml = grouped[anno]
       .sort((a, b) => {
-        const codeA = parseStatoCode(a.stato);
-        const codeB = parseStatoCode(b.stato);
+        // Priorità Tipi: 21 (prio 1) -> 44 (prio 2) -> 45 (prio 3)
+        const prioA = getPriorityOrder(a.stato);
+        const prioB = getPriorityOrder(b.stato);
 
-        const prioA = typePriority[codeA] || 99;
-        const prioB = typePriority[codeB] || 99;
-
-        // 1. Prima ordina per Tipo (21 -> 44 -> 45)
         if (prioA !== prioB) {
           return prioA - prioB;
         }
 
-        // 2. A parità di tipo, ordina per Numero Fascicolo DECRESCENTE
+        // A parità di tipo, ordinamento per Numero Fascicolo DECRESCENTE (es. 500, 400, 10)
         return Number(b.numero) - Number(a.numero);
       })
       .map(f => `
