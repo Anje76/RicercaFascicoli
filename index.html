@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestione Fascicoli Vocale</title>
+  <link rel="manifest" href="manifest.json">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen pb-12">
+
+  <header class="bg-indigo-700 text-white p-4 shadow-md sticky top-0 z-50">
+    <div class="max-w-md mx-auto flex justify-between items-center">
+      <h1 class="text-xl font-bold flex items-center gap-2">
+        <i class="fa-solid fa-folder-open"></i> Fascicoli Vocali
+      </h1>
+      <span id="status-badge" class="text-xs bg-indigo-500 px-2 py-1 rounded-full">Pronto</span>
+    </div>
+  </header>
+
+  <main class="max-w-md mx-auto p-4 space-y-6">
+
+    <!-- Sezione Dettato Vocale -->
+    <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 text-center">
+      <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">Comando Vocale</h2>
+      
+      <div class="flex justify-center gap-4 my-4">
+        <!-- Botton per Inserire -->
+        <button id="btn-mic-add" onclick="startSpeech('add')" class="w-16 h-16 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white flex flex-col items-center justify-center shadow-lg transition-transform active:scale-95">
+          <i class="fa-solid fa-plus text-xl"></i>
+          <span class="text-[10px] uppercase font-bold mt-1">Aggiungi</span>
+        </button>
+
+        <!-- Botton per Cercare -->
+        <button id="btn-mic-search" onclick="startSpeech('search')" class="w-16 h-16 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white flex flex-col items-center justify-center shadow-lg transition-transform active:scale-95">
+          <i class="fa-solid fa-magnifying-glass text-xl"></i>
+          <span class="text-[10px] uppercase font-bold mt-1">Cerca</span>
+        </button>
+      </div>
+
+      <p id="transcript-output" class="text-sm text-slate-600 italic bg-slate-50 p-3 rounded-lg min-h-[48px] border border-slate-100 flex items-center justify-center">
+        Premi "Aggiungi" per registrare o "Cerca" per interrogare...
+      </p>
+    </section>
+
+    <!-- Elenco Fascicoli Divisi per Anno -->
+    <section>
+      <div class="flex justify-between items-center mb-3">
+        <h2 class="text-lg font-bold text-slate-700">Archivio Fascicoli</h2>
+        <button onclick="clearAllData()" class="text-xs text-red-500 hover:underline">Svuota tutto</button>
+      </div>
+      
+      <div id="years-container" class="space-y-4">
+        <!-- Contenuto generato dinamicamente via JS -->
+      </div>
+    </section>
+
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

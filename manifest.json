@@ -1,0 +1,9 @@
+{
+  "short_name": "Fascicoli",
+  "name": "Gestione Fascicoli Vocale",
+  "icons": [],
+  "start_url": ".",
+  "background_color": "#4338ca",
+  "theme_color": "#4338ca",
+  "display": "standalone"
+}
