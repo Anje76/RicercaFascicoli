@@ -3,16 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gestione Fascicoli Vocale v2</title>
+  <title>Gestione Fascicoli Vocale v3</title>
   <link rel="manifest" href="manifest.json">
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Libreria SheetJS per lettura e parsing Excel (.xls / .xlsx) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
   <style>
-    /* Effetto lampeggiante visivo per evidenziare il fascicolo trovato */
     @keyframes highlightPulse {
-      0% { transform: scale(1); background-color: #fef08a; box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.7); }
-      50% { transform: scale(1.03); background-color: #fef08a; box-shadow: 0 0 20px 10px rgba(234, 179, 8, 0.5); }
-      100% { transform: scale(1); background-color: #f8fafc; box-shadow: 0 0 0 0 rgba(234, 179, 8, 0); }
+      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.7); }
+      50% { transform: scale(1.03); box-shadow: 0 0 20px 10px rgba(234, 179, 8, 0.5); }
+      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(234, 179, 8, 0); }
     }
     .highlight-found {
       animation: highlightPulse 1.2s ease-in-out 3;
@@ -58,6 +61,37 @@
       </p>
     </section>
 
+    <!-- Sezione Importazione Excel -->
+    <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+      <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+        <i class="fa-solid fa-file-excel text-emerald-600"></i> Importa da Excel (ANNO, NUMERO, TIPO, OP.)
+      </h2>
+      
+      <div class="grid grid-cols-2 gap-2 mb-3">
+        <!-- Carica da File Locale -->
+        <label class="cursor-pointer bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors">
+          <i class="fa-solid fa-upload"></i>
+          <span>Carica File</span>
+          <input type="file" id="excel-file-input" accept=".xls,.xlsx" class="hidden" onchange="importExcelFromFile(event)">
+        </label>
+
+        <!-- Importa dati.xls dalla Root -->
+        <button onclick="importExcelFromRoot()" class="bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors">
+          <i class="fa-solid fa-cloud-arrow-down text-indigo-600"></i>
+          <span>Da Root (dati.xls)</span>
+        </button>
+      </div>
+
+      <!-- Legenda Colori Sintetica -->
+      <div class="text-[10px] text-slate-500 pt-2 border-t border-slate-100 flex flex-wrap gap-2 justify-center">
+        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-sky-200 border border-sky-400 inline-block"></span> 44 IGNOTI</span>
+        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-red-200 border border-red-400 inline-block"></span> 45 F.N.C.R.</span>
+        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-200 border border-emerald-400 inline-block"></span> 21 NOTI ('26)</span>
+        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-200 border border-amber-400 inline-block"></span> 21 NOTI ('25)</span>
+        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-purple-200 border border-purple-400 inline-block"></span> 21 NOTI ('24)</span>
+      </div>
+    </section>
+
     <!-- Elenco Fascicoli Divisi per Anno -->
     <section>
       <div class="flex justify-between items-center mb-3">
@@ -72,7 +106,7 @@
 
   </main>
 
-  <!-- MODALE / POPUP DI CORREZIONE RAPIDA TOCCO SCREEN -->
+  <!-- MODALE DI CORREZIONE RAPIDA -->
   <div id="edit-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4 transition-opacity">
     <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl space-y-4">
       
@@ -83,7 +117,6 @@
         </button>
       </div>
 
-      <!-- Contenuto Dinamico Modale (Tastierino o Selettore Anni) -->
       <div id="modal-content" class="py-2">
         <!-- Generato via JavaScript -->
       </div>

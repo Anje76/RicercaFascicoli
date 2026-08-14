@@ -1,9 +1,53 @@
-// Database locale sincronizzato con LocalStorage
+// Database locale con supporto ai codici 21, 44, 45
 let fascicoli = JSON.parse(localStorage.getItem('fascicoli_db')) || [
-  { id: 1, numero: "452", anno: "2026", stato: "Noti", operatore: "Michele" },
-  { id: 2, numero: "105", anno: "2025", stato: "Ignoti", operatore: "Angelo" },
-  { id: 3, numero: "88", anno: "2024", stato: "Noti", operatore: "Michele" }
+  { id: 1, anno: "2026", numero: "452", stato: "21", operatore: "Michele" },
+  { id: 2, anno: "2025", numero: "105", stato: "44", operatore: "Angelo" },
+  { id: 3, anno: "2024", numero: "88", stato: "45", operatore: "Michele" },
+  { id: 4, anno: "2023", numero: "12", stato: "21", operatore: "Angelo" }
 ];
+
+// Mappatura Codici -> Denominazione Estesa
+function getStatoFormatted(codice) {
+  const cod = String(codice).trim();
+  if (cod === '21' || cod.toLowerCase().includes('noti')) return '21 - NOTI';
+  if (cod === '44' || cod.toLowerCase().includes('ignoti')) return '44 - IGNOTI';
+  if (cod === '45' || cod.toLowerCase().includes('fncr') || cod.toLowerCase().includes('f.n.c.r')) return '45 - F.N.C.R.';
+  return `${cod} - NOTI`;
+}
+
+// Convertitore da testo/valore al codice standard (21, 44, 45)
+function parseStatoCode(val) {
+  const str = String(val).toLowerCase().trim();
+  if (str.includes('44') || str.includes('ignot')) return '44';
+  if (str.includes('45') || str.includes('fncr') || str.includes('f.n.c.r')) return '45';
+  return '21'; // Default NOTI
+}
+
+// Calcolo dinamico dello sfondo scheda in base al tipo e all'anno
+function getCardBgClass(statoCode, anno) {
+  const code = parseStatoCode(statoCode);
+  
+  // 1. IGNOTI (44) -> Sfondo azzurro
+  if (code === '44') {
+    return 'bg-sky-100 border-sky-300 text-sky-950 shadow-xs';
+  }
+  
+  // 2. F.N.C.R. (45) -> Sfondo rosso
+  if (code === '45') {
+    return 'bg-red-100 border-red-300 text-red-950 shadow-xs';
+  }
+  
+  // 3. NOTI (21) -> Colore dipendente dall'anno
+  if (code === '21') {
+    const a = String(anno).trim();
+    if (a === '2026') return 'bg-emerald-100 border-emerald-300 text-emerald-950 shadow-xs'; // Verde chiaro
+    if (a === '2025') return 'bg-amber-100 border-amber-300 text-amber-950 shadow-xs';    // Giallo
+    if (a === '2024') return 'bg-purple-100 border-purple-300 text-purple-950 shadow-xs';  // Viola chiaro
+    return 'bg-white border-slate-200 text-slate-800 shadow-xs';                            // Altri anni -> Bianco
+  }
+
+  return 'bg-white border-slate-200 text-slate-800 shadow-xs';
+}
 
 // Inizializzazione Riconoscimento Vocale
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -16,17 +60,16 @@ if (SpeechRecognition) {
   recognition.interimResults = false;
 }
 
-// Avvio ascolto
 function startSpeech(mode) {
   if (!recognition) {
-    alert("Riconoscimento vocale non supportato sul tuo browser. Usa Chrome o Safari.");
+    alert("Riconoscimento vocale non supportato. Usa Chrome o Safari.");
     return;
   }
   
   const statusBadge = document.getElementById('status-badge');
   const transcriptOutput = document.getElementById('transcript-output');
   
-  statusBadge.textContent = "Ascolto in corso...";
+  statusBadge.textContent = "Ascolto...";
   statusBadge.className = "text-xs bg-red-500 px-2.5 py-1 rounded-full text-white animate-pulse font-medium";
   transcriptOutput.textContent = "Parla ora...";
 
@@ -39,28 +82,25 @@ function startSpeech(mode) {
     statusBadge.textContent = "Elaborazione...";
     statusBadge.className = "text-xs bg-amber-500 px-2.5 py-1 rounded-full text-white font-medium";
 
-    if (mode === 'add') {
-      parseAndAdd(text);
-    } else if (mode === 'search') {
-      parseAndSearch(text);
-    }
+    if (mode === 'add') parseAndAdd(text);
+    else if (mode === 'search') parseAndSearch(text);
   };
 
   recognition.onerror = () => {
     statusBadge.textContent = "Errore";
     statusBadge.className = "text-xs bg-slate-500 px-2.5 py-1 rounded-full text-white font-medium";
-    transcriptOutput.textContent = "Riconoscimento non riuscito. Riprova.";
+    transcriptOutput.textContent = "Riconoscimento fallito. Riprova.";
   };
 
   recognition.onend = () => {
-    if (statusBadge.textContent === "Ascolto in corso...") {
+    if (statusBadge.textContent === "Ascolto...") {
       statusBadge.textContent = "Pronto";
       statusBadge.className = "text-xs bg-indigo-500 px-2.5 py-1 rounded-full text-white font-medium";
     }
   };
 }
 
-// Estrazione Dati per Inserimento Vocale
+// Parsing Inserimento Vocale
 function parseAndAdd(text) {
   const textLower = text.toLowerCase();
   
@@ -70,7 +110,10 @@ function parseAndAdd(text) {
   const numero = numMatch ? numMatch[1] : null;
   const anno = annoMatch ? annoMatch[1] : new Date().getFullYear().toString();
   
-  const stato = textLower.includes('ignot') ? 'Ignoti' : 'Noti';
+  let stato = '21';
+  if (textLower.includes('ignot') || textLower.includes('44')) stato = '44';
+  else if (textLower.includes('fncr') || textLower.includes('f.n.c.r') || textLower.includes('45')) stato = '45';
+
   const operatore = textLower.includes('angelo') ? 'Angelo' : 'Michele';
 
   if (!numero) {
@@ -78,24 +121,20 @@ function parseAndAdd(text) {
     return;
   }
 
-  const nuovoFascicolo = { id: Date.now(), numero, anno, stato, operatore };
+  const nuovoFascicolo = { id: Date.now(), anno, numero, stato, operatore };
   fascicoli.push(nuovoFascicolo);
   saveData();
   renderList();
   
-  speak(`Registrato fascicolo ${numero} del ${anno} per ${operatore}`);
-  
-  // Evidenzia visivamente il fascicolo appena inserito
+  speak(`Registrato fascicolo ${anno} ${numero} ${getStatoFormatted(stato)} per ${operatore}`);
   setTimeout(() => highlightCard(nuovoFascicolo.id), 300);
 }
 
-// Estrazione Dati e Ricerca Vocale con Evidenziazione Lampeggiante
+// Ricerca Vocale
 function parseAndSearch(text) {
-  const textLower = text.toLowerCase();
-  const numMatch = textLower.match(/\d+/);
-  
+  const numMatch = text.match(/\d+/);
   if (!numMatch) {
-    speak("Specifica il numero di fascicolo da cercare.");
+    speak("Specifica un numero di fascicolo.");
     return;
   }
 
@@ -104,8 +143,7 @@ function parseAndSearch(text) {
 
   if (trovati.length > 0) {
     const f = trovati[0];
-    speak(`Trovato! Fascicolo ${f.numero} del ${f.anno}, stato ${f.stato}, operatore ${f.operatore}.`);
-    
+    speak(`Trovato! Fascicolo ${f.anno} ${f.numero} ${getStatoFormatted(f.stato)}, operatore ${f.operatore}.`);
     renderList();
     setTimeout(() => highlightCard(f.id), 200);
   } else {
@@ -113,19 +151,16 @@ function parseAndSearch(text) {
   }
 }
 
-// Funzione per animare e far lampeggiare il fascicolo trovato
 function highlightCard(id) {
   const card = document.getElementById(`card-${id}`);
   if (card) {
     card.scrollIntoView({ behavior: 'smooth', block: 'center' });
     card.classList.remove('highlight-found');
-    // Forziamo il reflow per riattivare l'animazione
     void card.offsetWidth; 
     card.classList.add('highlight-found');
   }
 }
 
-// Sintesi Vocale (Text-To-Speech)
 function speak(phrase) {
   const statusBadge = document.getElementById('status-badge');
   statusBadge.textContent = "Pronto";
@@ -139,20 +174,121 @@ function speak(phrase) {
   }
 }
 
-// Persistenza LocalStorage
+// --- IMPORTAZIONE E PARSING EXCEL (.XLS / .XLSX) ---
+
+function importExcelFromFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const data = new Uint8Array(e.target.result);
+    processExcelWorkbook(data);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+async function importExcelFromRoot() {
+  const statusBadge = document.getElementById('status-badge');
+  statusBadge.textContent = "Download Excel...";
+  statusBadge.className = "text-xs bg-amber-500 px-2.5 py-1 rounded-full text-white font-medium";
+
+  try {
+    let response = await fetch('./dati.xls');
+    if (!response.ok) response = await fetch('./dati.xlsx');
+
+    if (!response.ok) {
+      throw new Error("File dati.xls o dati.xlsx non trovato nella cartella root.");
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const data = new Uint8Array(arrayBuffer);
+    processExcelWorkbook(data);
+    
+  } catch (err) {
+    alert("Impossibile caricare il file dalla root: " + err.message);
+    statusBadge.textContent = "Pronto";
+    statusBadge.className = "text-xs bg-indigo-500 px-2.5 py-1 rounded-full text-white font-medium";
+  }
+}
+
+// Elaborazione sequenziale righe Excel: Colonna 0 (ANNO), 1 (NUMERO), 2 (STATO/CODICE 21/44/45), 3 (OPERATORE)
+function processExcelWorkbook(data) {
+  try {
+    const workbook = XLSX.read(data, { type: 'array' });
+    const firstSheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[firstSheetName];
+    
+    // Converte in matrice 2D per mantenere rigorosamente l'ordine delle colonne
+    const jsonRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+    if (jsonRows.length === 0) {
+      alert("Il file Excel è vuoto.");
+      return;
+    }
+
+    let nuoviInseriti = 0;
+
+    // Salta la prima riga se contiene l'intestazione
+    let startIdx = 0;
+    if (jsonRows[0] && String(jsonRows[0][0]).toUpperCase().includes('ANN')) {
+      startIdx = 1;
+    }
+
+    for (let i = startIdx; i < jsonRows.length; i++) {
+      const row = jsonRows[i];
+      if (!row || row.length === 0) continue;
+
+      const annoRaw = row[0] !== undefined ? String(row[0]).trim() : '';
+      const numeroRaw = row[1] !== undefined ? String(row[1]).trim() : '';
+      const statoRaw = row[2] !== undefined ? String(row[2]).trim() : '';
+      const operatoreRaw = row[3] !== undefined ? String(row[3]).trim() : '';
+
+      if (numeroRaw) {
+        const anno = annoRaw || new Date().getFullYear().toString();
+        const numero = numeroRaw;
+        const stato = parseStatoCode(statoRaw);
+        const operatore = operatoreRaw || 'Michele';
+
+        const giaEsistente = fascicoli.some(f => f.numero === numero && f.anno === anno);
+        if (!giaEsistente) {
+          fascicoli.push({
+            id: Date.now() + Math.floor(Math.random() * 1000) + i,
+            anno,
+            numero,
+            stato,
+            operatore
+          });
+          nuoviInseriti++;
+        }
+      }
+    }
+
+    saveData();
+    renderList();
+    
+    alert(`Importazione completata! Aggiunti ${nuoviInseriti} nuovi fascicoli.`);
+    speak(`Importati ${nuoviInseriti} fascicoli da Excel.`);
+
+  } catch (e) {
+    alert("Errore nell'elaborazione del file Excel: " + e.message);
+  }
+}
+
+// Persistenza Dati
 function saveData() {
   localStorage.setItem('fascicoli_db', JSON.stringify(fascicoli));
 }
 
 function clearAllData() {
-  if (confirm("Vuoi davvero cancellare l'intero archivio?")) {
+  if (confirm("Vuoi cancellare tutto l'archivio locale?")) {
     fascicoli = [];
     saveData();
     renderList();
   }
 }
 
-// --- LOGICA MODALE E CORREZIONI TOUCH SCREEN ---
+// --- GESTIONE MODALI E CAMBIO STATI ---
 let currentEditingId = null;
 
 function closeModal() {
@@ -160,7 +296,6 @@ function closeModal() {
   currentEditingId = null;
 }
 
-// 1. Modifica Numero tramite Tastierino Numerico Soft
 function openEditNumero(id) {
   currentEditingId = id;
   const f = fascicoli.find(x => x.id === id);
@@ -175,7 +310,6 @@ function openEditNumero(id) {
         <span id="keypad-display" class="text-3xl font-extrabold tracking-widest text-indigo-700">${f.numero}</span>
       </div>
       
-      <!-- Tastierino Numerico Touch -->
       <div class="grid grid-cols-3 gap-2">
         ${[1,2,3,4,5,6,7,8,9].map(n => `
           <button onclick="keypadPress('${n}')" class="py-3 bg-slate-100 active:bg-indigo-100 text-slate-800 text-xl font-bold rounded-xl shadow-sm border border-slate-200">${n}</button>
@@ -194,23 +328,15 @@ function openEditNumero(id) {
 
 function keypadPress(val) {
   const display = document.getElementById('keypad-display');
-  if (val === 'back') {
-    display.textContent = display.textContent.slice(0, -1);
-  } else if (val === 'clear') {
-    display.textContent = '';
-  } else {
-    if (display.textContent.length < 6) {
-      display.textContent += val;
-    }
-  }
+  if (val === 'back') display.textContent = display.textContent.slice(0, -1);
+  else if (val === 'clear') display.textContent = '';
+  else if (display.textContent.length < 6) display.textContent += val;
 }
 
 function saveNumeroChange() {
   const newNum = document.getElementById('keypad-display').textContent.trim();
-  if (!newNum) {
-    alert("Inserisci un numero valido!");
-    return;
-  }
+  if (!newNum) return alert("Inserisci un numero valido!");
+  
   const f = fascicoli.find(x => x.id === currentEditingId);
   if (f) {
     f.numero = newNum;
@@ -221,53 +347,14 @@ function saveNumeroChange() {
   }
 }
 
-// 2. Modifica Anno tramite Selezione Rapida (Pillole Anni fino al 2020)
-function openEditAnno(id) {
-  currentEditingId = id;
-  const f = fascicoli.find(x => x.id === id);
-  if (!f) return;
-
-  const currentYear = new Date().getFullYear();
-  const anniDisponibili = [];
-  for (let y = currentYear + 1; y >= 2020; y--) {
-    anniDisponibili.push(y.toString());
-  }
-
-  document.getElementById('modal-title').textContent = "Seleziona Anno";
-  
-  const content = document.getElementById('modal-content');
-  content.innerHTML = `
-    <div class="space-y-3">
-      <p class="text-xs text-slate-500">Tocca l'anno desiderato per il fascicolo n° <strong>${f.numero}</strong>:</p>
-      <div class="grid grid-cols-3 gap-2.5 max-h-60 overflow-y-auto p-1">
-        ${anniDisponibili.map(a => `
-          <button onclick="selectAnno('${a}')" class="py-2.5 px-3 rounded-xl font-bold text-sm border ${a === f.anno ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-slate-50 text-slate-700 border-slate-200 active:bg-indigo-50'}">
-            ${a} ${a === currentYear.toString() ? '<span class="text-[10px] font-normal block opacity-80">(Corrente)</span>' : ''}
-          </button>
-        `).join('')}
-      </div>
-    </div>
-  `;
-
-  document.getElementById('edit-modal').classList.remove('hidden');
-}
-
-function selectAnno(nuovoAnno) {
-  const f = fascicoli.find(x => x.id === currentEditingId);
-  if (f) {
-    f.anno = nuovoAnno;
-    saveData();
-    renderList();
-    closeModal();
-    highlightCard(f.id);
-  }
-}
-
-// 3. Cambio Rapido Alternativo a 1 Tocco (Stato / Operatore)
-function toggleStato(id) {
+// Rotazione Stato: 21 (NOTI) -> 44 (IGNOTI) -> 45 (F.N.C.R.)
+function cycleStato(id) {
   const f = fascicoli.find(x => x.id === id);
   if (f) {
-    f.stato = f.stato === 'Noti' ? 'Ignoti' : 'Noti';
+    if (f.stato === '21') f.stato = '44';
+    else if (f.stato === '44') f.stato = '45';
+    else f.stato = '21';
+
     saveData();
     renderList();
     highlightCard(f.id);
@@ -284,7 +371,6 @@ function toggleOperatore(id) {
   }
 }
 
-// 4. Eliminazione Singolo Fascicolo
 function deleteFascicolo(id) {
   if (confirm("Vuoi eliminare questo fascicolo?")) {
     fascicoli = fascicoli.filter(x => x.id !== id);
@@ -293,7 +379,7 @@ function deleteFascicolo(id) {
   }
 }
 
-// Rendering UI mobile divisa per Anno
+// Rendering lista fascicoli con sequenza "Anno / Numero / Tipo" e sfondo colorato
 function renderList() {
   const container = document.getElementById('years-container');
   container.innerHTML = '';
@@ -301,7 +387,7 @@ function renderList() {
   if (fascicoli.length === 0) {
     container.innerHTML = `<div class="text-center py-10 bg-white rounded-2xl border border-dashed border-slate-300">
       <i class="fa-regular fa-folder-open text-3xl text-slate-300 mb-2"></i>
-      <p class="text-slate-400 text-sm">Archivio vuoto.<br>Usa il pulsante "Aggiungi" per registrare un fascicolo.</p>
+      <p class="text-slate-400 text-sm">Archivio vuoto.<br>Usa il pulsante "Aggiungi" o importa un file Excel.</p>
     </div>`;
     return;
   }
@@ -321,43 +407,43 @@ function renderList() {
     const itemsHtml = grouped[anno]
       .sort((a, b) => Number(a.numero) - Number(b.numero))
       .map(f => `
-        <div id="card-${f.id}" class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 transition-all duration-300">
+        <div id="card-${f.id}" class="p-3.5 rounded-xl border transition-all duration-300 ${getCardBgClass(f.stato, f.anno)}">
           
-          <div class="flex justify-between items-center mb-2">
-            <!-- Tocco su Numero Fascicolo -->
-            <button onclick="openEditNumero(${f.id})" class="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border border-slate-200 active:bg-indigo-50 shadow-2xs">
-              <span class="text-xs text-slate-400 font-semibold">Fasc. n°</span>
-              <span class="font-black text-base text-slate-900">${f.numero}</span>
-              <i class="fa-solid fa-pen-to-square text-[11px] text-indigo-500 ml-1"></i>
-            </button>
-
-            <!-- Tocco su Anno -->
-            <button onclick="openEditAnno(${f.id})" class="text-xs font-semibold bg-slate-200 text-slate-700 px-2 py-1 rounded-md active:bg-slate-300 flex items-center gap-1">
+          <!-- Sequenza Anno / Numero / Tipo e Denominazione -->
+          <div class="flex justify-between items-center mb-1.5">
+            <div class="font-extrabold text-base tracking-tight flex items-center gap-1.5">
               <span>${f.anno}</span>
-              <i class="fa-solid fa-caret-down text-[10px]"></i>
-            </button>
-          </div>
-
-          <div class="flex justify-between items-center pt-2 border-t border-slate-200/60">
-            
-            <!-- Voci alternative con cambio rapido a 1 Tocco -->
-            <div class="flex gap-2">
-              <button onclick="toggleStato(${f.id})" title="Tocca per cambiare stato" class="px-2.5 py-1 text-xs font-bold rounded-lg border flex items-center gap-1 transition-all active:scale-95 ${f.stato === 'Noti' ? 'bg-purple-100 text-purple-800 border-purple-200' : 'bg-amber-100 text-amber-800 border-amber-200'}">
-                <span>${f.stato}</span>
-                <i class="fa-solid fa-arrows-rotate text-[10px] opacity-60"></i>
-              </button>
-
-              <button onclick="toggleOperatore(${f.id})" title="Tocca per cambiare operatore" class="px-2.5 py-1 text-xs font-bold rounded-lg border flex items-center gap-1 transition-all active:scale-95 ${f.operatore === 'Michele' ? 'bg-blue-100 text-blue-800 border-blue-200' : 'bg-emerald-100 text-emerald-800 border-emerald-200'}">
-                <span>${f.operatore}</span>
-                <i class="fa-solid fa-arrows-rotate text-[10px] opacity-60"></i>
-              </button>
+              <span class="opacity-40">/</span>
+              <span class="text-lg underline underline-offset-2 decoration-2">${f.numero}</span>
+              <span class="opacity-40">/</span>
+              <span class="text-sm font-bold opacity-90">${getStatoFormatted(f.stato)}</span>
             </div>
 
-            <!-- Pulsante Elimina -->
-            <button onclick="deleteFascicolo(${f.id})" class="text-slate-400 hover:text-red-500 p-1 rounded-md">
-              <i class="fa-solid fa-trash-can text-sm"></i>
-            </button>
+            <!-- Pulsanti Modifica Stato ed Eliminazione -->
+            <div class="flex items-center gap-1">
+              <button onclick="cycleStato(${f.id})" title="Cambia Stato (21/44/45)" class="px-2 py-1 rounded-lg bg-white/80 hover:bg-white border border-black/10 text-xs font-bold active:scale-95 transition-transform shadow-2xs">
+                <i class="fa-solid fa-arrows-rotate text-[10px]"></i>
+              </button>
+              <button onclick="deleteFascicolo(${f.id})" title="Elimina" class="p-1 text-black/40 hover:text-red-600 rounded-md">
+                <i class="fa-solid fa-trash-can text-xs"></i>
+              </button>
+            </div>
+          </div>
 
+          <!-- Operatore indicato a parte in formato ridotto -->
+          <div class="flex justify-between items-center pt-1.5 border-t border-black/10 text-xs">
+            <span class="font-medium text-[11px] opacity-80 flex items-center gap-1">
+              <i class="fa-solid fa-user text-[10px] opacity-60"></i> Operatore: <strong class="font-bold opacity-100">${f.operatore}</strong>
+            </span>
+
+            <div class="flex items-center gap-2 text-[11px]">
+              <button onclick="openEditNumero(${f.id})" class="font-semibold hover:underline flex items-center gap-1 opacity-90">
+                <i class="fa-solid fa-pen-to-square text-[10px]"></i> Modifica Num.
+              </button>
+              <button onclick="toggleOperatore(${f.id})" class="text-[10px] opacity-70 hover:opacity-100 underline">
+                (Cambia Op.)
+              </button>
+            </div>
           </div>
 
         </div>
@@ -377,5 +463,5 @@ function renderList() {
   });
 }
 
-// Inizializzazione al caricamento
+// Inizializzazione
 renderList();
