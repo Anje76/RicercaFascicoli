@@ -1,9 +1,10 @@
 // Database locale con supporto ai codici 21, 44, 45
 let fascicoli = JSON.parse(localStorage.getItem('fascicoli_db')) || [
   { id: 1, anno: "2026", numero: "452", stato: "21", operatore: "Michele" },
-  { id: 2, anno: "2025", numero: "105", stato: "44", operatore: "Angelo" },
-  { id: 3, anno: "2024", numero: "88", stato: "45", operatore: "Michele" },
-  { id: 4, anno: "2023", numero: "12", stato: "21", operatore: "Angelo" }
+  { id: 2, anno: "2026", numero: "510", stato: "21", operatore: "Angelo" },
+  { id: 3, anno: "2026", numero: "120", stato: "44", operatore: "Michele" },
+  { id: 4, anno: "2025", numero: "105", stato: "44", operatore: "Angelo" },
+  { id: 5, anno: "2024", numero: "88", stato: "45", operatore: "Michele" }
 ];
 
 // Mappatura Codici -> Denominazione Estesa
@@ -47,6 +48,15 @@ function getCardBgClass(statoCode, anno) {
   }
 
   return 'bg-white border-slate-200 text-slate-800 shadow-xs';
+}
+
+// Generatore Badge Operatore (Angelo: fondo blu / contorno cremisi; Michele: fondo nero / contorno rosso)
+function getOperatoreBadge(operatore) {
+  const op = String(operatore).trim();
+  if (op.toLowerCase().includes('angelo')) {
+    return `<span class="bg-blue-600 border-2 border-[#DC143C] text-white text-[11px] px-2.5 py-0.5 rounded-md font-extrabold tracking-wide shadow-2xs uppercase">Angelo</span>`;
+  }
+  return `<span class="bg-black border-2 border-red-600 text-white text-[11px] px-2.5 py-0.5 rounded-md font-extrabold tracking-wide shadow-2xs uppercase">Michele</span>`;
 }
 
 // Inizializzazione Riconoscimento Vocale
@@ -212,14 +222,13 @@ async function importExcelFromRoot() {
   }
 }
 
-// Elaborazione sequenziale righe Excel: Colonna 0 (ANNO), 1 (NUMERO), 2 (STATO/CODICE 21/44/45), 3 (OPERATORE)
+// Elaborazione sequenziale righe Excel: Colonna 0 (ANNO), 1 (NUMERO), 2 (STATO 21/44/45), 3 (OPERATORE)
 function processExcelWorkbook(data) {
   try {
     const workbook = XLSX.read(data, { type: 'array' });
     const firstSheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[firstSheetName];
     
-    // Converte in matrice 2D per mantenere rigorosamente l'ordine delle colonne
     const jsonRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
     if (jsonRows.length === 0) {
@@ -229,7 +238,6 @@ function processExcelWorkbook(data) {
 
     let nuoviInseriti = 0;
 
-    // Salta la prima riga se contiene l'intestazione
     let startIdx = 0;
     if (jsonRows[0] && String(jsonRows[0][0]).toUpperCase().includes('ANN')) {
       startIdx = 1;
@@ -275,7 +283,6 @@ function processExcelWorkbook(data) {
   }
 }
 
-// Persistenza Dati
 function saveData() {
   localStorage.setItem('fascicoli_db', JSON.stringify(fascicoli));
 }
@@ -379,7 +386,10 @@ function deleteFascicolo(id) {
   }
 }
 
-// Rendering lista fascicoli con sequenza "Anno / Numero / Tipo" e sfondo colorato
+// Rendering lista con ORDINAMENTO PRIORITARIO:
+// 1° Anno (Decrescente)
+// 2° Tipo (21 -> 44 -> 45)
+// 3° Numero fascicolo (Decrescente)
 function renderList() {
   const container = document.getElementById('years-container');
   container.innerHTML = '';
@@ -392,34 +402,53 @@ function renderList() {
     return;
   }
 
+  // Raggruppamento per Anno
   const grouped = {};
   fascicoli.forEach(f => {
     if (!grouped[f.anno]) grouped[f.anno] = [];
     grouped[f.anno].push(f);
   });
 
+  // Ordinamento Anno Decrescente
   const anniOrdinati = Object.keys(grouped).sort((a, b) => b - a);
+
+  // Mappa priorità dei tipi (21 prima, poi 44, poi 45)
+  const typePriority = { '21': 1, '44': 2, '45': 3 };
 
   anniOrdinati.forEach(anno => {
     const groupEl = document.createElement('div');
     groupEl.className = 'bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden';
     
     const itemsHtml = grouped[anno]
-      .sort((a, b) => Number(a.numero) - Number(b.numero))
+      .sort((a, b) => {
+        const codeA = parseStatoCode(a.stato);
+        const codeB = parseStatoCode(b.stato);
+
+        const prioA = typePriority[codeA] || 99;
+        const prioB = typePriority[codeB] || 99;
+
+        // 1. Prima ordina per Tipo (21 -> 44 -> 45)
+        if (prioA !== prioB) {
+          return prioA - prioB;
+        }
+
+        // 2. A parità di tipo, ordina per Numero Fascicolo DECRESCENTE
+        return Number(b.numero) - Number(a.numero);
+      })
       .map(f => `
         <div id="card-${f.id}" class="p-3.5 rounded-xl border transition-all duration-300 ${getCardBgClass(f.stato, f.anno)}">
           
-          <!-- Sequenza Anno / Numero / Tipo e Denominazione -->
-          <div class="flex justify-between items-center mb-1.5">
-            <div class="font-extrabold text-base tracking-tight flex items-center gap-1.5">
-              <span>${f.anno}</span>
-              <span class="opacity-40">/</span>
-              <span class="text-lg underline underline-offset-2 decoration-2">${f.numero}</span>
-              <span class="opacity-40">/</span>
-              <span class="text-sm font-bold opacity-90">${getStatoFormatted(f.stato)}</span>
+          <!-- Sequenza Anno / Numero / Tipo Ingrandita -->
+          <div class="flex justify-between items-center mb-2">
+            <div class="font-black text-lg sm:text-xl tracking-tight flex items-center gap-2">
+              <span class="text-slate-900">${f.anno}</span>
+              <span class="opacity-30">/</span>
+              <span class="text-xl sm:text-2xl font-black underline underline-offset-4 decoration-2">${f.numero}</span>
+              <span class="opacity-30">/</span>
+              <span class="text-base sm:text-lg font-extrabold">${getStatoFormatted(f.stato)}</span>
             </div>
 
-            <!-- Pulsanti Modifica Stato ed Eliminazione -->
+            <!-- Azioni Rapide -->
             <div class="flex items-center gap-1">
               <button onclick="cycleStato(${f.id})" title="Cambia Stato (21/44/45)" class="px-2 py-1 rounded-lg bg-white/80 hover:bg-white border border-black/10 text-xs font-bold active:scale-95 transition-transform shadow-2xs">
                 <i class="fa-solid fa-arrows-rotate text-[10px]"></i>
@@ -430,18 +459,19 @@ function renderList() {
             </div>
           </div>
 
-          <!-- Operatore indicato a parte in formato ridotto -->
-          <div class="flex justify-between items-center pt-1.5 border-t border-black/10 text-xs">
-            <span class="font-medium text-[11px] opacity-80 flex items-center gap-1">
-              <i class="fa-solid fa-user text-[10px] opacity-60"></i> Operatore: <strong class="font-bold opacity-100">${f.operatore}</strong>
-            </span>
+          <!-- Riquadro Operatore Personalizzato e Opzioni -->
+          <div class="flex justify-between items-center pt-2 border-t border-black/10 text-xs">
+            <div class="flex items-center gap-2">
+              <span class="text-[11px] font-bold opacity-70">Operatore:</span>
+              ${getOperatoreBadge(f.operatore)}
+            </div>
 
             <div class="flex items-center gap-2 text-[11px]">
               <button onclick="openEditNumero(${f.id})" class="font-semibold hover:underline flex items-center gap-1 opacity-90">
                 <i class="fa-solid fa-pen-to-square text-[10px]"></i> Modifica Num.
               </button>
               <button onclick="toggleOperatore(${f.id})" class="text-[10px] opacity-70 hover:opacity-100 underline">
-                (Cambia Op.)
+                (Cambia)
               </button>
             </div>
           </div>
