@@ -3,19 +3,33 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gestione Fascicoli Vocale</title>
+  <title>Gestione Fascicoli Vocale v2</title>
   <link rel="manifest" href="manifest.json">
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    /* Effetto lampeggiante visivo per evidenziare il fascicolo trovato */
+    @keyframes highlightPulse {
+      0% { transform: scale(1); background-color: #fef08a; box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.7); }
+      50% { transform: scale(1.03); background-color: #fef08a; box-shadow: 0 0 20px 10px rgba(234, 179, 8, 0.5); }
+      100% { transform: scale(1); background-color: #f8fafc; box-shadow: 0 0 0 0 rgba(234, 179, 8, 0); }
+    }
+    .highlight-found {
+      animation: highlightPulse 1.2s ease-in-out 3;
+      border-color: #eab308 !important;
+      border-width: 2px !important;
+    }
+  </style>
 </head>
-<body class="bg-slate-100 text-slate-800 font-sans min-h-screen pb-12">
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen pb-20">
 
-  <header class="bg-indigo-700 text-white p-4 shadow-md sticky top-0 z-50">
+  <!-- Header -->
+  <header class="bg-indigo-700 text-white p-4 shadow-md sticky top-0 z-40">
     <div class="max-w-md mx-auto flex justify-between items-center">
       <h1 class="text-xl font-bold flex items-center gap-2">
         <i class="fa-solid fa-folder-open"></i> Fascicoli Vocali
       </h1>
-      <span id="status-badge" class="text-xs bg-indigo-500 px-2 py-1 rounded-full">Pronto</span>
+      <span id="status-badge" class="text-xs bg-indigo-500 px-2.5 py-1 rounded-full font-medium">Pronto</span>
     </div>
   </header>
 
@@ -23,23 +37,23 @@
 
     <!-- Sezione Dettato Vocale -->
     <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 text-center">
-      <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">Comando Vocale</h2>
+      <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Comando Vocale</h2>
       
-      <div class="flex justify-center gap-4 my-4">
-        <!-- Botton per Inserire -->
+      <div class="flex justify-center gap-6 my-4">
+        <!-- Bottone Aggiungi -->
         <button id="btn-mic-add" onclick="startSpeech('add')" class="w-16 h-16 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white flex flex-col items-center justify-center shadow-lg transition-transform active:scale-95">
           <i class="fa-solid fa-plus text-xl"></i>
-          <span class="text-[10px] uppercase font-bold mt-1">Aggiungi</span>
+          <span class="text-[10px] uppercase font-bold mt-0.5">Aggiungi</span>
         </button>
 
-        <!-- Botton per Cercare -->
+        <!-- Bottone Cerca -->
         <button id="btn-mic-search" onclick="startSpeech('search')" class="w-16 h-16 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white flex flex-col items-center justify-center shadow-lg transition-transform active:scale-95">
           <i class="fa-solid fa-magnifying-glass text-xl"></i>
-          <span class="text-[10px] uppercase font-bold mt-1">Cerca</span>
+          <span class="text-[10px] uppercase font-bold mt-0.5">Cerca</span>
         </button>
       </div>
 
-      <p id="transcript-output" class="text-sm text-slate-600 italic bg-slate-50 p-3 rounded-lg min-h-[48px] border border-slate-100 flex items-center justify-center">
+      <p id="transcript-output" class="text-sm text-slate-600 italic bg-slate-50 p-3 rounded-xl min-h-[48px] border border-slate-100 flex items-center justify-center">
         Premi "Aggiungi" per registrare o "Cerca" per interrogare...
       </p>
     </section>
@@ -48,7 +62,7 @@
     <section>
       <div class="flex justify-between items-center mb-3">
         <h2 class="text-lg font-bold text-slate-700">Archivio Fascicoli</h2>
-        <button onclick="clearAllData()" class="text-xs text-red-500 hover:underline">Svuota tutto</button>
+        <button onclick="clearAllData()" class="text-xs text-red-500 hover:underline font-medium">Svuota tutto</button>
       </div>
       
       <div id="years-container" class="space-y-4">
@@ -57,6 +71,25 @@
     </section>
 
   </main>
+
+  <!-- MODALE / POPUP DI CORREZIONE RAPIDA TOCCO SCREEN -->
+  <div id="edit-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4 transition-opacity">
+    <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl space-y-4">
+      
+      <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+        <h3 id="modal-title" class="text-base font-bold text-slate-800">Modifica Campo</h3>
+        <button onclick="closeModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Contenuto Dinamico Modale (Tastierino o Selettore Anni) -->
+      <div id="modal-content" class="py-2">
+        <!-- Generato via JavaScript -->
+      </div>
+
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>
