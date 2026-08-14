@@ -1,7 +1,7 @@
 // Database locale con supporto ai codici 21, 44, 45
 let fascicoli = JSON.parse(localStorage.getItem('fascicoli_db')) || [
-  { id: 1, anno: "2026", numero: "452", stato: "21", operatore: "Michele" },
-  { id: 2, anno: "2026", numero: "510", stato: "21", operatore: "Angelo" },
+  { id: 1, anno: "2026", numero: "1112", stato: "21", operatore: "Angelo" },
+  { id: 2, anno: "2026", numero: "452", stato: "21", operatore: "Michele" },
   { id: 3, anno: "2026", numero: "120", stato: "44", operatore: "Michele" },
   { id: 4, anno: "2025", numero: "105", stato: "44", operatore: "Angelo" },
   { id: 5, anno: "2024", numero: "88", stato: "45", operatore: "Michele" }
@@ -39,36 +39,35 @@ function getCardBgClass(statoCode, anno) {
   
   // 1. IGNOTI (44) -> Sfondo azzurro
   if (code === '44') {
-    return 'bg-sky-100 border-sky-300 text-sky-950 shadow-xs';
+    return 'bg-sky-100 border-sky-300 text-sky-950 shadow-2xs';
   }
   
   // 2. F.N.C.R. (45) -> Sfondo rosso
   if (code === '45') {
-    return 'bg-red-100 border-red-300 text-red-950 shadow-xs';
+    return 'bg-red-100 border-red-300 text-red-950 shadow-2xs';
   }
   
   // 3. NOTI (21) -> Colore dipendente dall'anno
   if (code === '21') {
     const a = String(anno).trim();
-    if (a === '2026') return 'bg-emerald-100 border-emerald-300 text-emerald-950 shadow-xs'; // Verde chiaro
-    if (a === '2025') return 'bg-amber-100 border-amber-300 text-amber-950 shadow-xs';    // Giallo
-    if (a === '2024') return 'bg-purple-100 border-purple-300 text-purple-950 shadow-xs';  // Viola chiaro
-    return 'bg-white border-slate-200 text-slate-800 shadow-xs';                            // Altri anni -> Bianco
+    if (a === '2026') return 'bg-emerald-100 border-emerald-300 text-emerald-950 shadow-2xs'; // Verde chiaro
+    if (a === '2025') return 'bg-amber-100 border-amber-300 text-amber-950 shadow-2xs';    // Giallo
+    if (a === '2024') return 'bg-purple-100 border-purple-300 text-purple-950 shadow-2xs';  // Viola chiaro
+    return 'bg-white border-slate-200 text-slate-800 shadow-2xs';                            // Altri anni -> Bianco
   }
 
-  return 'bg-white border-slate-200 text-slate-800 shadow-xs';
+  return 'bg-white border-slate-200 text-slate-800 shadow-2xs';
 }
 
-// Generatore Badge Operatore con pulizia maiuscole/minuscole e stili ad altissimo contrasto
+// Generatore Badge Operatore Compatto (Angelo: Blu/Cremisi; Michele: Nero/Rosso)
 function getOperatoreBadge(operatore) {
   const opClean = String(operatore || '').trim().toLowerCase();
   
   if (opClean.includes('angelo')) {
-    return `<span class="inline-block uppercase font-black text-[11px] tracking-wider px-2.5 py-0.5 rounded-md shadow-xs" style="background-color: #2563eb !important; color: #ffffff !important; border: 2px solid #dc2626 !important;">ANGELO</span>`;
+    return `<span class="inline-block uppercase font-black text-[10px] sm:text-[11px] tracking-wider px-2 py-0.5 rounded shadow-2xs leading-none" style="background-color: #2563eb !important; color: #ffffff !important; border: 1.5px solid #dc2626 !important;">ANGELO</span>`;
   }
   
-  // Default MICHELE (o altro operatore)
-  return `<span class="inline-block uppercase font-black text-[11px] tracking-wider px-2.5 py-0.5 rounded-md shadow-xs" style="background-color: #000000 !important; color: #ffffff !important; border: 2px solid #dc2626 !important;">MICHELE</span>`;
+  return `<span class="inline-block uppercase font-black text-[10px] sm:text-[11px] tracking-wider px-2 py-0.5 rounded shadow-2xs leading-none" style="background-color: #000000 !important; color: #ffffff !important; border: 1.5px solid #dc2626 !important;">MICHELE</span>`;
 }
 
 // Inizializzazione Riconoscimento Vocale
@@ -234,7 +233,6 @@ async function importExcelFromRoot() {
   }
 }
 
-// Elaborazione sequenziale righe Excel: Colonna 0 (ANNO), 1 (NUMERO), 2 (STATO 21/44/45), 3 (OPERATORE)
 function processExcelWorkbook(data) {
   try {
     const workbook = XLSX.read(data, { type: 'array' });
@@ -269,7 +267,6 @@ function processExcelWorkbook(data) {
         const numero = numeroRaw;
         const stato = parseStatoCode(statoRaw);
         
-        // Pulizia nome operatore
         let operatore = 'Michele';
         if (operatoreRaw.toLowerCase().includes('angelo')) {
           operatore = 'Angelo';
@@ -312,7 +309,7 @@ function clearAllData() {
   }
 }
 
-// --- GESTIONE MODALI E CAMBIO STATI ---
+// --- MODALE UNIFICATO PER MODIFICA RECORD ---
 let currentEditingId = null;
 
 function closeModal() {
@@ -320,78 +317,61 @@ function closeModal() {
   currentEditingId = null;
 }
 
-function openEditNumero(id) {
+function openEditModal(id) {
   currentEditingId = id;
   const f = fascicoli.find(x => x.id === id);
   if (!f) return;
 
-  document.getElementById('modal-title').textContent = `Modifica Numero (Attuale: ${f.numero})`;
-  
+  document.getElementById('modal-title').textContent = `Modifica Fascicolo`;
+
   const content = document.getElementById('modal-content');
   content.innerHTML = `
-    <div class="space-y-4">
-      <div class="bg-slate-100 p-3 rounded-xl text-center">
-        <span id="keypad-display" class="text-3xl font-extrabold tracking-widest text-indigo-700">${f.numero}</span>
+    <form onsubmit="saveRecordEdit(event)" class="space-y-3 text-left">
+      <div>
+        <label class="block text-xs font-bold text-slate-500 mb-1">Anno</label>
+        <input type="number" id="edit-anno" value="${f.anno}" required class="w-full p-2 border border-slate-300 rounded-lg text-sm font-bold">
       </div>
-      
-      <div class="grid grid-cols-3 gap-2">
-        ${[1,2,3,4,5,6,7,8,9].map(n => `
-          <button onclick="keypadPress('${n}')" class="py-3 bg-slate-100 active:bg-indigo-100 text-slate-800 text-xl font-bold rounded-xl shadow-sm border border-slate-200">${n}</button>
-        `).join('')}
-        <button onclick="keypadPress('back')" class="py-3 bg-red-50 text-red-600 active:bg-red-100 text-lg font-bold rounded-xl shadow-sm border border-red-100"><i class="fa-solid fa-delete-left"></i></button>
-        <button onclick="keypadPress('0')" class="py-3 bg-slate-100 active:bg-indigo-100 text-slate-800 text-xl font-bold rounded-xl shadow-sm border border-slate-200">0</button>
-        <button onclick="keypadPress('clear')" class="py-3 bg-amber-50 text-amber-600 active:bg-amber-100 text-sm font-bold rounded-xl shadow-sm border border-amber-100">C</button>
+      <div>
+        <label class="block text-xs font-bold text-slate-500 mb-1">Numero Fascicolo</label>
+        <input type="text" id="edit-numero" value="${f.numero}" required class="w-full p-2 border border-slate-300 rounded-lg text-sm font-bold">
       </div>
-
-      <button onclick="saveNumeroChange()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md">Conferma Numero</button>
-    </div>
+      <div>
+        <label class="block text-xs font-bold text-slate-500 mb-1">Tipo Fascicolo</label>
+        <select id="edit-stato" class="w-full p-2 border border-slate-300 rounded-lg text-sm font-bold">
+          <option value="21" ${parseStatoCode(f.stato) === '21' ? 'selected' : ''}>21 - NOTI</option>
+          <option value="44" ${parseStatoCode(f.stato) === '44' ? 'selected' : ''}>44 - IGNOTI</option>
+          <option value="45" ${parseStatoCode(f.stato) === '45' ? 'selected' : ''}>45 - F.N.C.R.</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-slate-500 mb-1">Operatore</label>
+        <select id="edit-operatore" class="w-full p-2 border border-slate-300 rounded-lg text-sm font-bold">
+          <option value="Angelo" ${String(f.operatore).toLowerCase().includes('angelo') ? 'selected' : ''}>Angelo</option>
+          <option value="Michele" ${!String(f.operatore).toLowerCase().includes('angelo') ? 'selected' : ''}>Michele</option>
+        </select>
+      </div>
+      <div class="pt-2 flex gap-2">
+        <button type="submit" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm shadow-md">Salva Modifiche</button>
+        <button type="button" onclick="closeModal()" class="py-2.5 px-4 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl text-sm">Annulla</button>
+      </div>
+    </form>
   `;
 
   document.getElementById('edit-modal').classList.remove('hidden');
 }
 
-function keypadPress(val) {
-  const display = document.getElementById('keypad-display');
-  if (val === 'back') display.textContent = display.textContent.slice(0, -1);
-  else if (val === 'clear') display.textContent = '';
-  else if (display.textContent.length < 6) display.textContent += val;
-}
-
-function saveNumeroChange() {
-  const newNum = document.getElementById('keypad-display').textContent.trim();
-  if (!newNum) return alert("Inserisci un numero valido!");
-  
+function saveRecordEdit(e) {
+  e.preventDefault();
   const f = fascicoli.find(x => x.id === currentEditingId);
   if (f) {
-    f.numero = newNum;
+    f.anno = document.getElementById('edit-anno').value.trim();
+    f.numero = document.getElementById('edit-numero').value.trim();
+    f.stato = document.getElementById('edit-stato').value;
+    f.operatore = document.getElementById('edit-operatore').value;
+
     saveData();
     renderList();
     closeModal();
-    highlightCard(f.id);
-  }
-}
-
-// Rotazione Stato: 21 (NOTI) -> 44 (IGNOTI) -> 45 (F.N.C.R.)
-function cycleStato(id) {
-  const f = fascicoli.find(x => x.id === id);
-  if (f) {
-    if (f.stato === '21') f.stato = '44';
-    else if (f.stato === '44') f.stato = '45';
-    else f.stato = '21';
-
-    saveData();
-    renderList();
-    highlightCard(f.id);
-  }
-}
-
-function toggleOperatore(id) {
-  const f = fascicoli.find(x => x.id === id);
-  if (f) {
-    const currentOp = String(f.operatore).toLowerCase();
-    f.operatore = currentOp.includes('michele') ? 'Angelo' : 'Michele';
-    saveData();
-    renderList();
     highlightCard(f.id);
   }
 }
@@ -404,16 +384,13 @@ function deleteFascicolo(id) {
   }
 }
 
-// Rendering lista con ORDINAMENTO PRIORITARIO:
-// 1° Anno (Decrescente)
-// 2° Tipo (21 -> 44 -> 45)
-// 3° Numero fascicolo (Decrescente)
+// Rendering lista ultrasolitario e compatto
 function renderList() {
   const container = document.getElementById('years-container');
   container.innerHTML = '';
 
   if (fascicoli.length === 0) {
-    container.innerHTML = `<div class="text-center py-10 bg-white rounded-2xl border border-dashed border-slate-300">
+    container.innerHTML = `<div class="text-center py-8 bg-white rounded-2xl border border-dashed border-slate-300">
       <i class="fa-regular fa-folder-open text-3xl text-slate-300 mb-2"></i>
       <p class="text-slate-400 text-sm">Archivio vuoto.<br>Usa il pulsante "Aggiungi" o importa un file Excel.</p>
     </div>`;
@@ -427,12 +404,12 @@ function renderList() {
     grouped[f.anno].push(f);
   });
 
-  // Ordinamento Anno Decrescente (es. 2026, 2025, 2024...)
+  // Ordinamento Anno Decrescente
   const anniOrdinati = Object.keys(grouped).sort((a, b) => Number(b) - Number(a));
 
   anniOrdinati.forEach(anno => {
     const groupEl = document.createElement('div');
-    groupEl.className = 'bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden';
+    groupEl.className = 'bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden';
     
     const itemsHtml = grouped[anno]
       .sort((a, b) => {
@@ -444,59 +421,41 @@ function renderList() {
           return prioA - prioB;
         }
 
-        // A parità di tipo, ordinamento per Numero Fascicolo DECRESCENTE (es. 500, 400, 10)
+        // A parità di tipo, ordinamento per Numero Fascicolo DECRESCENTE
         return Number(b.numero) - Number(a.numero);
       })
       .map(f => `
-        <div id="card-${f.id}" class="p-3.5 rounded-xl border transition-all duration-300 ${getCardBgClass(f.stato, f.anno)}">
+        <div id="card-${f.id}" class="px-3 py-2 rounded-lg border transition-all duration-300 flex items-center justify-between gap-2 ${getCardBgClass(f.stato, f.anno)}">
           
-          <!-- Sequenza Anno / Numero / Tipo Ingrandita -->
-          <div class="flex justify-between items-center mb-2">
-            <div class="font-black text-lg sm:text-xl tracking-tight flex items-center gap-2">
-              <span class="text-slate-900">${f.anno}</span>
-              <span class="opacity-30">/</span>
-              <span class="text-xl sm:text-2xl font-black underline underline-offset-4 decoration-2">${f.numero}</span>
-              <span class="opacity-30">/</span>
-              <span class="text-base sm:text-lg font-extrabold">${getStatoFormatted(f.stato)}</span>
-            </div>
-
-            <!-- Azioni Rapide -->
-            <div class="flex items-center gap-1">
-              <button onclick="cycleStato(${f.id})" title="Cambia Stato (21/44/45)" class="px-2 py-1 rounded-lg bg-white/80 hover:bg-white border border-black/10 text-xs font-bold active:scale-95 transition-transform shadow-2xs">
-                <i class="fa-solid fa-arrows-rotate text-[10px]"></i>
-              </button>
-              <button onclick="deleteFascicolo(${f.id})" title="Elimina" class="p-1 text-black/40 hover:text-red-600 rounded-md">
-                <i class="fa-solid fa-trash-can text-xs"></i>
-              </button>
-            </div>
+          <!-- Dati in Sequenza Inline: ANNO / NUMERO / TIPO - DENOMINAZIONE ANGELO -->
+          <div class="flex items-center gap-1.5 flex-wrap font-black text-sm sm:text-base leading-tight">
+            <span class="text-slate-900">${f.anno}</span>
+            <span class="opacity-30">/</span>
+            <span class="text-base sm:text-lg underline underline-offset-2 font-black">${f.numero}</span>
+            <span class="opacity-30">/</span>
+            <span class="font-bold">${getStatoFormatted(f.stato)}</span>
+            ${getOperatoreBadge(f.operatore)}
           </div>
 
-          <!-- Riquadro Operatore Personalizzato e Opzioni -->
-          <div class="flex justify-between items-center pt-2 border-t border-black/10 text-xs">
-            <div class="flex items-center gap-2">
-              <span class="text-[11px] font-bold opacity-70">Operatore:</span>
-              ${getOperatoreBadge(f.operatore)}
-            </div>
-
-            <div class="flex items-center gap-2 text-[11px]">
-              <button onclick="openEditNumero(${f.id})" class="font-semibold hover:underline flex items-center gap-1 opacity-90">
-                <i class="fa-solid fa-pen-to-square text-[10px]"></i> Modifica Num.
-              </button>
-              <button onclick="toggleOperatore(${f.id})" class="text-[10px] opacity-70 hover:opacity-100 underline">
-                (Cambia)
-              </button>
-            </div>
+          <!-- Comandi Rapidi: Modifica (Icona Matita) ed Elimina -->
+          <div class="flex items-center gap-1 shrink-0">
+            <button onclick="openEditModal(${f.id})" title="Modifica Fascicolo" class="p-1.5 bg-white/80 hover:bg-white text-indigo-700 border border-slate-300/80 rounded-md shadow-2xs transition-transform active:scale-95">
+              <i class="fa-solid fa-pen-to-square text-xs"></i>
+            </button>
+            <button onclick="deleteFascicolo(${f.id})" title="Elimina" class="p-1.5 bg-white/80 hover:bg-white text-red-600 border border-slate-300/80 rounded-md shadow-2xs transition-transform active:scale-95">
+              <i class="fa-solid fa-trash-can text-xs"></i>
+            </button>
           </div>
 
         </div>
       `).join('');
 
     groupEl.innerHTML = `
-      <div class="bg-slate-100 px-4 py-2.5 border-b border-slate-200 font-extrabold text-slate-700 text-sm flex justify-between items-center">
+      <div class="bg-slate-100 px-3 py-1.5 border-b border-slate-200 font-extrabold text-slate-700 text-xs flex justify-between items-center">
         <span class="flex items-center gap-1.5"><i class="fa-solid fa-calendar-days text-indigo-500"></i> Anno ${anno}</span>
-        <span class="text-xs bg-indigo-100 text-indigo-800 px-2.5 py-0.5 rounded-full font-bold">${grouped[anno].length} fascicol${grouped[anno].length === 1 ? 'o' : 'i'}</span>
+        <span class="text-[11px] bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-bold">${grouped[anno].length} fascicol${grouped[anno].length === 1 ? 'o' : 'i'}</span>
       </div>
-      <div class="p-3 space-y-3">
+      <div class="p-2 space-y-1.5">
         ${itemsHtml}
       </div>
     `;
